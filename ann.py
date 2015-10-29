@@ -7,11 +7,13 @@ import theano
 import theano.tensor as T
 import theano.tensor.nnet as Tann
 
+
 class ANN:
 
     def __init__(self):
         """
         Class constructor
+
         :return: None
         """
 
@@ -24,77 +26,110 @@ class ANN:
         self.predictor = None
         self.trainer = None
 
+        # Debug
+        print ''
+
     def load(self, dataset='training', digits=np.arange(10)):
         """
         Really just encapsulates the load function from the MNIST Loader
+
         :param dataset: String, the type of dataset to load. Must be either training or testing
         :param digits: Array of list of digits to load. Range 0 - 10
         :return: None
         """
 
+        print 'Loading dataset of type: ' + dataset
+        print ''
+
         self.images, self.labels = Loader.load(dataset, digits)
 
+        print 'Loaded dataset'
+        print ''
+
     def build_network(self, layers=[784, 784, 10]):
+        """
+        Method that builds the network by specifying the dimentions for each layer
+
+        :param layers: List of layer sizes, integers in whole numbers
+        :return: None
+        """
+
+        # Debug information
+        print 'Creating Neural Network'
+        print '======================='
+        print 'Input layer neurons: ' + str(layers[0])
+        for i in range(1, len(layers) - 1):
+            print 'Hidden layer #' + str(i) + ' neurons: ' + str(layers[i])
+        print 'Output layer neurons: ' + str(layers[-1])
+        print ''
+
         # Define the input variable
-        input = T.wvector('input')
+        ipt = T.wvector('input')
 
         # Define the expected result
         expected = T.wvector('expected')
 
-        # Variables holding the weights, bias nd sigmoids
+        # Avoid Pyhon complaining
+        error = None
+
+        # Variables holding the weights, bias and sigmoids
         weights = []
-        bias = []
+        biases = []
         sigmoids = []
 
         # Define the different shared variables and the sigmoids
-        w1 = theano.shared(np.random.uniform(-.1, .1, size=(784, 784)))
-        w1.name = 'Weight 1'
+        for i in range(1, len(layers)):
+            # Create weights
+            weight = theano.shared(np.random.uniform(-.1, .1, size=(layers[i - 1], layers[i])))
+            weight.name = 'Weight ' + str(i)
+            weights.append(weight)
 
-        w2 = theano.shared(np.random.uniform(-.1, .1, size=(784,10)))
-        w2.name = 'Weight 2'
+            # Create biases
+            bias = theano.shared(np.random.uniform(-.1, .1, size=layers[i]))
+            bias.name = 'Bias ' + str(i)
+            biases.append(bias)
 
-        # Define the biases
-        b1 = theano.shared(np.random.uniform(-.1, .1, size=784)) # Input width
-        b1.name = 'Bias 1'
+            # Create sigmoids
+            if i == 1:
+                sigmoid = Tann.sigmoid(T.dot(ipt, weights[-1]) + biases[-1])
+            else:
+                sigmoid = Tann.sigmoid(T.dot(sigmoids[-1], weights[-1]) + biases[-1])
+            sigmoid.name = 'Sigmoid ' + str(i)
+            sigmoids.append(sigmoid)
 
-        b2 = theano.shared(np.random.uniform(-.1, .1, size=10)) # Output width
-        b2.name = 'Bias 2'
+            # Create the error correction
+            if i == (len(layers) - 1):
+                error = T.sum((expected - sigmoids[-1]) ** 2)
+                error.name = 'Error'
 
-        # Define the sigmoid for (input * weight1) + bias1
-        x1 = Tann.sigmoid(T.dot(input, w1) + b1)
-        x1.name = 'Sigmoid 1'
-
-        # Define the sigmoid for (x1 * weight2) + bias2
-        x2 = Tann.sigmoid(T.dot(x1, w2) + b2)
-        x2.name = 'Sigmoid 2'
-
-        # Define the error calculation
-        error = T.sum((expected - x2) ** 2)
-        error.name = 'Error'
-
-        # List the params in a array
-        params = [w1, b1, w2, b2]
+        # Build params list
+        params = []
+        for i in range(len(weights)):
+            params.extend([weights[i], biases[i]])
 
         # Define the gradient
         gradients = T.grad(error, params)
 
         # Define the backprop function
-        backprop_acts = [(p, p - self.learning_rate * g) for p,g in zip(params, gradients)]
+        backprop_acts = [(p, p - self.learning_rate * g) for p, g in zip(params, gradients)]
 
         # The predicter, used to run the tests
-        self.predictor = theano.function([input], [x2])
+        self.predictor = theano.function([ipt], [sigmoids[-1]])
 
         # The trainer, used to train the network
-        self.trainer = theano.function([input, expected], [error, x2], updates=backprop_acts)
-
-        # theano.printing.pydotprint(self.trainer,outfile='debug/ann',format='pdf')
-        # theano.printing.debugprint(self.trainer)
+        self.trainer = theano.function([ipt, expected], [error, sigmoids[-1]], updates=backprop_acts)
 
     def do_training(self, epochs=4):
+        """
+        Execute training for the training set
+
+        :param epochs: Integer, number of epochs to do
+        :return: None
+        """
+
         num = len(self.images)
 
         # Debug
-        print ''
         print 'Training'
         print 'Size of training set: ' + str(num)
         print ''
@@ -139,6 +174,12 @@ class ANN:
         print 'Final error value: ' + str(error)
 
     def do_testing(self):
+        """
+        Execute the test suite
+
+        :return: None
+        """
+
         # First, load the testing dataset
         self.load(dataset='testing')
 
@@ -162,10 +203,10 @@ class ANN:
             # Get the value the predictor guessed
             guessed_number = np.argmax(test_result)
 
-            #print test_result
-            #print guessed_number
-            #print self.labels[i][0]
-            #print '----'
+            print test_result
+            print guessed_number
+            print self.labels[i][0]
+            print '----'
 
             # Check if we were correct or not
             if self.labels[i] == guessed_number:
@@ -179,21 +220,19 @@ class ANN:
         print 'Correct: ' + str(correct) + ' (' + str(round(((correct / float(correct + wrong)) * 100), 2)) + '%)'
         print 'Wrong: ' + str(wrong) + ' (' + str(round(((wrong / float(correct + wrong)) * 100), 2)) + '%)'
 
+# If the script was called directly, run this debug stuff
+if __name__ == '__main__':
+    # New instance of the network
+    an = ANN()
 
+    # Load the file
+    an.load()
 
-# New instance of the network
-an = ANN()
+    # Build the network
+    an.build_network([784, 784, 784, 10])
 
-# Load the file
-an.load()
+    # Train once
+    an.do_training(epochs=3)
 
-# Build the network
-an.build_network([784, 784, 9])
-
-# Train once
-an.do_training()
-
-# Run the tests!
-#an.do_testing()
-
-# THEANO_FLAGS=mode=FAST_RUN,device=gpu,floatX=float32
+    # Run the tests!
+    an.do_testing()
