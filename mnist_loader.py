@@ -48,7 +48,7 @@ class Loader:
 
         # Create empty images and labels matrices
         images = np.zeros((n, (rows * cols)), dtype=np.uint8)
-        labels = np.zeros((n, 1), dtype=np.int8)
+        labels = np.zeros(n, dtype=np.int8)
 
         # Loop the index numbers and build the arrays
         for i in range(n):

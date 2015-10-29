@@ -160,8 +160,8 @@ class ANN:
             # Loop all the images
             for j in range(num):
                 # Debug
-                if j % 1000 == 0:
-                    print str(j) + ' / ' + str(num)
+                if j > 0 and j % 1000 == 0:
+                    print str(j) + ' / ' + str(num) + ' (' + str(round(((j / float(num)) * 100), 0)) + '%)'
 
                 # Create expected array
                 expected = [0] * 10
@@ -212,11 +212,6 @@ class ANN:
             # Get the value the predictor guessed
             guessed_number = np.argmax(test_result)
 
-            print test_result
-            print guessed_number
-            print self.labels[i][0]
-            print '----'
-
             # Check if we were correct or not
             if self.labels[i] == guessed_number:
                 correct += 1
@@ -241,7 +236,7 @@ if debug:
     an.build_network([784, 784, 10])
 
     # Train once
-    an.do_training(epochs=10)
+    an.do_training(epochs=1)
 
     # Run the tests!
     an.do_testing()
