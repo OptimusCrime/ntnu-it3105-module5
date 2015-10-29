@@ -7,6 +7,11 @@ import theano
 import theano.tensor as T
 import theano.tensor.nnet as Tann
 
+# Debug on/off
+debug = False
+if __name__ == '__main__':
+    debug = True
+
 
 class ANN:
 
@@ -27,7 +32,8 @@ class ANN:
         self.trainer = None
 
         # Debug
-        print ''
+        if debug:
+            print ''
 
     def load(self, dataset='training', digits=np.arange(10)):
         """
@@ -38,13 +44,15 @@ class ANN:
         :return: None
         """
 
-        print 'Loading dataset of type: ' + dataset
-        print ''
+        if debug:
+            print 'Loading dataset of type: ' + dataset
+            print ''
 
         self.images, self.labels = Loader.load(dataset, digits)
 
-        print 'Loaded dataset'
-        print ''
+        if debug:
+            print 'Loaded dataset'
+            print ''
 
     def build_network(self, layers=[784, 784, 10]):
         """
@@ -54,14 +62,15 @@ class ANN:
         :return: None
         """
 
-        # Debug information
-        print 'Creating Neural Network'
-        print '======================='
-        print 'Input layer neurons: ' + str(layers[0])
-        for i in range(1, len(layers) - 1):
-            print 'Hidden layer #' + str(i) + ' neurons: ' + str(layers[i])
-        print 'Output layer neurons: ' + str(layers[-1])
-        print ''
+        # Debug
+        if debug:
+            print 'Creating Neural Network'
+            print ''
+            print 'Input layer neurons: ' + str(layers[0])
+            for i in range(1, len(layers) - 1):
+                print 'Hidden layer #' + str(i) + ' neurons: ' + str(layers[i])
+            print 'Output layer neurons: ' + str(layers[-1])
+            print ''
 
         # Define the input variable
         ipt = T.wvector('input')
@@ -129,9 +138,10 @@ class ANN:
 
         num = len(self.images)
 
-        # Debug
+        # Information
         print 'Training'
         print 'Size of training set: ' + str(num)
+        print 'Epochs running: ' + str(epochs)
         print ''
 
         # Array to store error values
@@ -171,7 +181,6 @@ class ANN:
 
         # Debug
         print 'Errors: ' + str(errors)
-        print 'Final error value: ' + str(error)
 
     def do_testing(self):
         """
@@ -221,7 +230,7 @@ class ANN:
         print 'Wrong: ' + str(wrong) + ' (' + str(round(((wrong / float(correct + wrong)) * 100), 2)) + '%)'
 
 # If the script was called directly, run this debug stuff
-if __name__ == '__main__':
+if debug:
     # New instance of the network
     an = ANN()
 
@@ -229,10 +238,10 @@ if __name__ == '__main__':
     an.load()
 
     # Build the network
-    an.build_network([784, 784, 784, 10])
+    an.build_network([784, 784, 10])
 
     # Train once
-    an.do_training(epochs=3)
+    an.do_training(epochs=10)
 
     # Run the tests!
     an.do_testing()
