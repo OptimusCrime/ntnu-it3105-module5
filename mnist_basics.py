@@ -1,11 +1,13 @@
-__author__ = 'keithd'
-
 # Copied (and modified) from http://g.sweyla.com/blog/2012/mnist-numpy/, which is
 # adapted from http://abel.ee.ucla.edu/cvxopt/_downloads/mnist.py
 
 import os, struct
 import time
 from array import array as pyarray
+import matplotlib
+
+matplotlib.use('TkAgg')
+
 import matplotlib.pyplot as pyplot
 import numpy
 import pickle
@@ -19,7 +21,7 @@ def kd_reduce(func,seq):
 
 # Set this to the complete path to your mnist files.
 ## __mnist_path__ = "path/to/all/your/mnist/files"
-__mnist_path__ = "/Users/Thomas/Downloads/basics"
+__mnist_path__ = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
 # The load_mnist function is the main interface between the MNIST files and your machine-learning code.  It fetches
 # subsets of the entire training or test sets, as determined by the 'digits'
@@ -78,6 +80,10 @@ def load_mnist(dataset="training", digits=numpy.arange(10), path= __mnist_path__
 # Other colormaps: binary, jet, copper, rainbow, summer, autumn, winter, spring...
 def show_avg_digit(digit, cm = 'gray'):
     images, labels = load_mnist('training', digits=[digit])
+
+    #for image in images:
+    #    print image
+
     show_digit_image(images.mean(axis=0),cm=cm)
 
 def show_digit_image(image,cm='gray'):
@@ -155,4 +161,3 @@ def quicktest(n = 99):
     image = reconstruct_image(features[n])
     show_digit_image(image)
     show_avg_digit(5)
-

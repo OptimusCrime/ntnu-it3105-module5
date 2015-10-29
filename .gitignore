@@ -1,2 +1,7 @@
+# Directories
+.idea
+debug
+
+# Other things we'd like to avoid
 .DS_Store
 *.pyc
