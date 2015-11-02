@@ -35,7 +35,7 @@ class ANN:
         if debug:
             print ''
 
-    def load(self, dataset='training', digits=np.arange(10)):
+    def load(self, dataset='training', digits=np.arange(10), k=None):
         """
         Really just encapsulates the load function from the MNIST Loader
 
@@ -48,7 +48,7 @@ class ANN:
             print 'Loading dataset of type: ' + dataset
             print ''
 
-        self.images, self.labels = Loader.load(dataset, digits)
+        self.images, self.labels = Loader.load(dataset, digits, k)
 
         if debug:
             print 'Loaded dataset'
@@ -230,7 +230,7 @@ if debug:
     an = ANN()
 
     # Load the file
-    an.load()
+    an.load(k=128)
 
     # Build the network
     an.build_network([784, 784, 784, 10])

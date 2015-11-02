@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os, struct
+import random
 import numpy as np
 from array import array as pyarray
 
@@ -11,7 +12,7 @@ class Loader:
         pass
 
     @staticmethod
-    def load(dataset, digits):
+    def load(dataset='training', digits=np.arange(10), k=None):
         # Get the path for the dataset
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
@@ -37,11 +38,27 @@ class Loader:
         img = pyarray('B', fimg.read())
         fimg.close()
 
-        # DEBUG
-        #digits = [1, 2]
+        # Find the index values for the digits we'd like to include in our image and labels arrays
+        if k is None:
+            ind = [x for x in range(size) if lbl[x] in digits]
+        else:
+            # Split the indexes by value
+            value_split = [[]] * 10
+            for x in range(size):
+                value_split[lbl[x] - 1].append(x)
 
-        # Find the indez values for the digits we'd like to include in our image and labels arrays
-        ind = [k for k in range(size) if lbl[k] in digits]
+            # Gather the different k values
+            ind = []
+            for x in range(len(value_split)):
+                # Get the random k indexes
+                k_random = random.sample(range(0, len(value_split[x])), k)
+
+                # Loop the indexes and get the actual values
+                for y in k_random:
+                    ind.append(value_split[x][y])
+
+            # Last, but not least, shuffle the final list
+            random.shuffle(ind)
 
         # Get the number of images we're going to parse
         n = len(ind)
