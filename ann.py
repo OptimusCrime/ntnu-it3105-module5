@@ -233,10 +233,10 @@ if debug:
     an.load()
 
     # Build the network
-    an.build_network([784, 784, 10])
+    an.build_network([784, 784, 784, 10])
 
     # Train once
-    an.do_training(epochs=1)
+    an.do_training(epochs=10)
 
     # Run the tests!
     an.do_testing()
