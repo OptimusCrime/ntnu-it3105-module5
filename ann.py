@@ -2,10 +2,13 @@
 
 from mnist_loader import Loader
 
+import os
 import numpy as np
 import theano
 import theano.tensor as T
-import theano.tensor.nnet as Tann
+from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
+
+srng = RandomStreams()
 
 # Debug on/off
 debug = False
@@ -17,55 +20,107 @@ class ANN:
 
     def __init__(self):
         """
-        Class constructor
-
+        Constructor for ANN class
         :return: None
         """
 
-        # Stuff related to data
-        self.images = None
-        self.labels = None
+        # Keep track of the datasets etc
+        self.train_images = None
+        self.train_labels = None
 
-        # Stuff related to the NN
-        self.learning_rate = .1
-        self.predictor = None
-        self.trainer = None
+        self.test_images = None
+        self.test_labels = None
 
-        # Debug
+        self.test_blind = None
+
+        # The learning rate
+        self.learn_rate = 0.0001
+
+        # The train and predict functions
+        self.train = None
+        self.predict = None
+
+    def load(self, dataset='training'):
         if debug:
-            print ''
-
-    def load(self, dataset='training', digits=np.arange(10), k=None):
-        """
-        Really just encapsulates the load function from the MNIST Loader
-
-        :param dataset: String, the type of dataset to load. Must be either training or testing
-        :param digits: Array of list of digits to load. Range 0 - 10
-        :return: None
-        """
-
-        if debug:
+            print 'Loader'
+            print '======================='
             print 'Loading dataset of type: ' + dataset
-            print ''
 
-        self.images, self.labels = Loader.load(dataset, digits, k)
+        # Fetch the set
+        images, labels = Loader.load(dataset)
+
+        # Store correctly
+        if dataset == 'training':
+            self.train_images = images
+            self.train_labels = labels
+        else:
+            self.test_images = images
+            self.test_labels = labels
 
         if debug:
-            print 'Loaded dataset'
+            print 'Loaded dataset of size: ' + str(len(self.train_labels))
             print ''
+
+    @staticmethod
+    def softmax(x):
+        """
+        Method for returning max for each row
+
+        :param X: Theano variable
+        :return: Max value for each row in the matrix
+        """
+
+        e_x = T.exp(x - x.max(axis=1).dimshuffle(0, 'x'))
+        return e_x / e_x.sum(axis=1).dimshuffle(0, 'x')
+
+    def rms_backprop(self, error, params, rho=0.9, epsilon=1e-6):
+        """
+        RMS backpropagation, used for updating the weights
+
+        :param error:
+        :param params:
+        :param rho:
+        :param epsilon:
+        :return:
+        """
+
+        grads = T.grad(cost=error, wrt=params)
+        updates = []
+        for p, g in zip(params, grads):
+            acc = theano.shared(p.get_value() * 0.)
+            acc_new = rho * acc + (1 - rho) * g ** 2
+            gradient_scaling = T.sqrt(acc_new + epsilon)
+            g = g / gradient_scaling
+            updates.append((acc, acc_new))
+            updates.append((p, p - self.learn_rate * g))
+        return updates
+
+    @staticmethod
+    def dropout(x, p=.0):
+        """
+        Method that adds noise to the model
+
+        :param x: Theano variable
+        :param p: Float number between 0 and 1
+        :return: Updated x
+        """
+
+        if p > 0:
+            x = (x * srng.binomial(x.shape, p=(1 - p), dtype=theano.config.floatX)) / (1 - p)
+        return x
 
     def build_network(self, layers=[784, 784, 10]):
         """
-        Method that builds the network by specifying the dimentions for each layer
+        Method building the network
 
-        :param layers: List of layer sizes, integers in whole numbers
+        :param layers: List of layer width
         :return: None
         """
 
         # Debug
         if debug:
             print 'Creating Neural Network'
-            print ''
+            print '======================='
             print 'Input layer neurons: ' + str(layers[0])
             for i in range(1, len(layers) - 1):
                 print 'Hidden layer #' + str(i) + ' neurons: ' + str(layers[i])
@@ -73,170 +128,188 @@ class ANN:
             print ''
 
         # Define the input variable
-        ipt = T.wvector('input')
+        ipt = T.fmatrix('input')
 
-        # Define the expected result
-        expected = T.wvector('expected')
-
-        # Avoid Pyhon complaining
+        # Avoid Python complaining
         error = None
 
-        # Variables holding the weights, bias and sigmoids
+        # Variables holding the weights, activations and noises
         weights = []
-        biases = []
-        sigmoids = []
+        activations = []
+        noises = []
 
-        # Define the different shared variables and the sigmoids
+        # Build the layers
         for i in range(1, len(layers)):
-            # Create weights
-            weight = theano.shared(np.random.uniform(-.1, .1, size=(layers[i - 1], layers[i])))
+            weight = theano.shared(np.asarray(np.random.randn(*(layers[i - 1], layers[i])) * 0.01))
             weight.name = 'Weight ' + str(i)
             weights.append(weight)
 
-            # Create biases
-            bias = theano.shared(np.random.uniform(-.1, .1, size=layers[i]))
-            bias.name = 'Bias ' + str(i)
-            biases.append(bias)
-
-            # Create sigmoids
             if i == 1:
-                sigmoid = Tann.sigmoid(T.dot(ipt, weights[-1]) + biases[-1])
-            else:
-                sigmoid = Tann.sigmoid(T.dot(sigmoids[-1], weights[-1]) + biases[-1])
-            sigmoid.name = 'Sigmoid ' + str(i)
-            sigmoids.append(sigmoid)
+                # Input -> Hidden layer. Rectify
+                activation = T.maximum(.0, T.dot(ipt, weights[-1]))
 
-            # Create the error correction
-            if i == (len(layers) - 1):
-                error = T.sum((expected - sigmoids[-1]) ** 2)
-                error.name = 'Error'
+                # Input -> Hidden layer. Rectify(dropout)
+                noise = T.maximum(.0, T.dot(ANN.dropout(ipt, p=.2), weights[-1]))
+            elif i == (len(layers) - 1):
+                # Hidden layer -> Output. Softmax
+                activation = ANN.softmax(T.dot(activations[-1], weights[-1]))
+
+                # Hidden layer -> Output. Softmax(Dropout)
+                noise = ANN.softmax(T.dot(ANN.dropout(noises[-1], p=.5), weights[-1]))
+            else:
+                # Hidden layer -> Hidden layer. Rectify
+                activation = T.maximum(.0, T.dot(activations[-1], weights[-1]))
+
+                # Hidden layer -> Hidden layer. Rectify(dropout)
+                noise = T.maximum(.0, T.dot(ANN.dropout(noises[-1], p=.2), weights[-1]))
+
+            activation.name = 'Activation ' + str(i)
+            activations.append(activation)
+
+            noise.name = 'Noise ' + str(i)
+            noises.append(noise)
 
         # Build params list
         params = []
         for i in range(len(weights)):
-            params.extend([weights[i], biases[i]])
+            params.append(weights[i])
 
-        # Define the gradient
-        gradients = T.grad(error, params)
+        # Define the train function
+        expected = T.fmatrix('expected')
+        error = T.mean(T.nnet.categorical_crossentropy(noises[-1], expected))
+        updates = self.rms_backprop(error, params)
+        self.train = theano.function(inputs=[ipt, expected], outputs=error, updates=updates, allow_input_downcast=True)
 
-        # Define the backprop function
-        backprop_acts = [(p, p - self.learning_rate * g) for p, g in zip(params, gradients)]
+        # Define the predict function
+        output = T.argmax(activations[-1], axis=1)
+        self.predict = theano.function(inputs=[ipt], outputs=output, allow_input_downcast=True)
 
-        # The predicter, used to run the tests
-        self.predictor = theano.function([ipt], [sigmoids[-1]])
-
-        # The trainer, used to train the network
-        self.trainer = theano.function([ipt, expected], [error, sigmoids[-1]], updates=backprop_acts)
-
-    def do_training(self, epochs=4):
+    def do_training(self, epochs=1, n=128, run_tests=False, test_interval=1):
         """
-        Execute training for the training set
+        Do the actual training
 
-        :param epochs: Integer, number of epochs to do
+        :param epochs: Number of epochs to train. Integer
+        :param n: Number of datasets to train at the same time. Integer
+        :param run_tests: Should run test after each epoch. Boolean
+        :param test_interval:  If run_tests is True, define how often we should run the test
         :return: None
         """
 
-        num = len(self.images)
+        if debug:
+            print 'Training'
+            print '======================='
 
-        # Information
-        print 'Training'
-        print 'Size of training set: ' + str(num)
-        print 'Epochs running: ' + str(epochs)
-        print ''
+        # Make sure we got what we need
+        if self.train_images is None:
+            print 'No training set loaded, aborting'
+            return
 
-        # Array to store error values
-        errors = []
-        error = 0
-
-        # Loop the epochs
-        for i in range(epochs):
-            # Debug
-            print 'Epoch ' + str(i + 1)
-            print '====================='
-
-            # Set the current error value to 0
-            error = 0
-
-            # Loop all the images
-            for j in range(num):
-                # Debug
-                if j > 0 and j % 1000 == 0:
-                    print str(j) + ' / ' + str(num) + ' (' + str(round(((j / float(num)) * 100), 0)) + '%)'
-
-                # Create expected array
-                expected = [0] * 10
-                expected[self.labels[j]] = 1
-
-                # Train
-                output, real_output = self.trainer(self.images[j], expected)
-
-                # Add error
-                error += output
-
-            # Add the error sum to the errors array to save progress
-            errors.append(error)
-
-            # Debug
+        # Check if we can run tests in between each epoch
+        if run_tests and self.test_images is None:
+            print 'No testing set loaded, not testing between training epochs'
             print ''
 
-        # Debug
-        print 'Errors: ' + str(errors)
+            # Reset run test value
+            run_tests = False
 
-    def do_testing(self):
+        # Debug information
+        if debug:
+            print 'Training total of: ' + str(epochs) + ' epochs'
+            print 'Size of n: ' + str(n)
+            print 'Testing between runs: ' + ('Yes' if run_tests else 'No')
+            print ''
+
+        # Run the training set
+        errors = []
+        for i in range(epochs):
+            # Debug print
+            print 'Epoch #' + str(i + 1)
+
+            # Keep track of the current error value
+            error = 0
+
+            # Do the actual training, by passing n number of cases at the time
+            for start in range(0, len(self.train_labels), n):
+                # Calculate end
+                end = start + n
+                if end > len(self.train_labels):
+                    end = len(self.train_labels)
+
+                # Train n number of images
+                error += self.train(self.train_images[start:end], self.train_labels[start:end])
+
+            # Print the error rate
+            print '- Error rate: ' + str(error)
+
+            # Check if we should test now
+            if run_tests and i % test_interval == 0:
+                self.do_testing(mode='inline')
+
+            # Newline
+            print ''
+
+            # Add error value to errors
+            errors.append(error)
+
+    def do_testing(self, mode='normal'):
         """
-        Execute the test suite
-
+        Do the testing of the NN
+        
+        :param mode: Define how to output information. Options: normal, inline
         :return: None
         """
 
-        # First, load the testing dataset
-        self.load(dataset='testing')
+        if debug and mode == 'normal':
+            print 'Testing'
+            print '======================='
 
-        # Get number of tests
-        num = len(self.images)
+        # Make sure we have the testing set
+        if self.test_images is None:
+            print 'No testing set loaded, aborting'
+            return
 
-        # Debug
-        print ''
-        print 'Testing'
-        print 'Size of testing set: ' + str(num)
+        # Debug information
+        if debug and mode == 'normal':
+            print 'Testing set size: ' + str(len(self.test_labels))
+            print ''
 
-        # Stats
-        wrong = 0
+        # Do the actual testing
+        guessed = self.predict(self.test_images)
+        solutions = np.argmax(self.test_labels, axis=1)
+
+        # Get the total amount of correct guesses
         correct = 0
-
-        # Loop all the test cases
-        for i in range(num):
-            # Run the predictator with the test
-            test_result = self.predictor(self.images[i])
-
-            # Get the value the predictor guessed
-            guessed_number = np.argmax(test_result)
-
-            # Check if we were correct or not
-            if self.labels[i] == guessed_number:
+        for i in range(len(guessed)):
+            if guessed[i] == solutions[i]:
                 correct += 1
-            else:
-                wrong += 1
 
-        # Debug print
-        print ''
-        print 'Guessed ' + str(correct + wrong) + ' numbers'
-        print 'Correct: ' + str(correct) + ' (' + str(round(((correct / float(correct + wrong)) * 100), 2)) + '%)'
-        print 'Wrong: ' + str(wrong) + ' (' + str(round(((wrong / float(correct + wrong)) * 100), 2)) + '%)'
+        # Return the number of corrects
+        if mode == 'inline':
+            print '- Correct guesses: ' + str(round(((correct / float(len(guessed))) * 100), 2)) + '%'
+        else:
+            print 'Correct: ' + str(correct) + ' (' + str(round(((correct / float(len(guessed))) * 100), 2)) + '%)'
+            print 'Wrong: ' + str(len(guessed) - correct) + ' (' + str(round((((len(guessed) - correct) / float(len(guessed))) * 100), 2)) + '%)'
 
 # If the script was called directly, run this debug stuff
 if debug:
+    # Make some room
+    print ''
+
     # New instance of the network
     an = ANN()
 
-    # Load the file
-    an.load(k=128)
+    # Load the file(s)
+    an.load(dataset='training')
+    an.load(dataset='testing')
 
     # Build the network
-    an.build_network([784, 784, 784, 10])
+    an.build_network([784, 392, 10])
 
     # Train once
-    an.do_training(epochs=10)
+    an.do_training(epochs=30, run_tests=True)
 
     # Run the tests!
     an.do_testing()
+
+    # Make some more room
+    print ''
