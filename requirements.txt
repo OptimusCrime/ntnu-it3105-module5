@@ -1,5 +1,3 @@
-matplotlib
-theano
-git+https://pypi.python.org/packages/source/p/pyparsing/pyparsing-1.5.7.tar.gz#md5=9be0fcdcc595199c646ab317c1d9a709
-pydot
+git+https://github.com/Theano/Theano.git@rel-0.7.1a1#egg=Theano==rel-0.7.1a1
+pydot2
 graphviz
