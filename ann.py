@@ -62,13 +62,17 @@ class ANN:
         if dataset == 'training':
             self.train_images = images
             self.train_labels = labels
+
+            if debug:
+                print('Loaded dataset of size: ' + str(len(self.train_labels)))
+                print('')
         else:
             self.test_images = images
             self.test_labels = labels
 
-        if debug:
-            print('Loaded dataset of size: ' + str(len(self.train_labels)))
-            print('')
+            if debug:
+                print('Loaded dataset of size: ' + str(len(self.test_labels)))
+                print('')
 
     def rmsprop(self, error, params, rho=0.9):
         """
@@ -114,7 +118,6 @@ class ANN:
         # Variables holding the weights, activations and noises
         weights = []
         activations = []
-        noises = []
 
         # Build the layers
         for i in range(1, len(layers)):
@@ -123,30 +126,18 @@ class ANN:
             weights.append(weight)
 
             if i == 1:
-                # Input -> Hidden layer. Rectify
+                # Input -> Hidden layer
                 activation = Tann.relu(T.dot(ipt, weights[-1]))
-
-                # Input -> Hidden layer. Rectify(dropout)
-                noise = Tann.relu(T.dot(ipt, weights[-1]))
             elif i == (len(layers) - 1):
-                # Hidden layer -> Output. Softmax
+                # Hidden layer -> Output
                 activation = Tann.softmax(T.dot(activations[-1], weights[-1]))
-
-                # Hidden layer -> Output. Softmax(Dropout)
-                noise = Tann.softmax(T.dot(noises[-1], weights[-1]))
             else:
-                # Hidden layer -> Hidden layer. Rectify
+                # Hidden layer -> Hidden layer
                 activation = Tann.relu(T.dot(activations[-1], weights[-1]))
-
-                # Hidden layer -> Hidden layer. Rectify(dropout)
-                noise = Tann.relu(T.dot(noises[-1], weights[-1]))
 
             activation.name = 'Activation ' + str(i)
             activations.append(activation)
-
-            noise.name = 'Noise ' + str(i)
-            noises.append(noise)
-
+        print(weights)
         # Build params list
         params = []
         for i in range(len(weights)):
@@ -154,7 +145,7 @@ class ANN:
 
         # Define the train function
         expected = T.fmatrix('expected')
-        error = T.mean(Tann.categorical_crossentropy(noises[-1], expected))
+        error = T.mean(Tann.categorical_crossentropy(activations[-1], expected))
         updates = self.rmsprop(error, params)
         self.train = theano.function(inputs=[ipt, expected], outputs=error, updates=updates, allow_input_downcast=True)
 
@@ -267,7 +258,7 @@ class ANN:
             print('- Correct guesses: ' + str(round(((correct / float(len(guessed))) * 100), 2)) + '%')
         else:
             print('Correct: ' + str(correct) + ' (' + str(round(((correct / float(len(guessed))) * 100), 2)) + '%)')
-            print('Wrong: ' + str(len(guessed) - correct) + ' (' + \
+            print('Wrong: ' + str(len(guessed) - correct) + ' (' +
                   str(round((((len(guessed) - correct) / float(len(guessed))) * 100), 2)) + '%)')
 
     def blind_test(self, feature_sets):
@@ -293,10 +284,10 @@ if debug:
     an.load(dataset='testing')
 
     # Build the network
-    an.build_network([784, 784, 392, 10])
+    an.build_network([784, 784, 10])
 
     # Train once
-    an.do_training(epochs=20, n=160, run_tests=False)
+    an.do_training(epochs=20, n=160, run_tests=True)
 
     # Run the tests!
     an.do_testing()

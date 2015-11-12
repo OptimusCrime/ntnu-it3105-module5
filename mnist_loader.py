@@ -22,7 +22,6 @@ class Loader:
             set_lbl = os.path.join(path, 'train-labels.idx1-ubyte')
             set_lbl_bits = 8
             set_lbl_shape = (60000)
-
         elif dataset == 'testing':
             set_img = os.path.join(path, 't10k-images.idx3-ubyte')
             set_img_bits = 16
