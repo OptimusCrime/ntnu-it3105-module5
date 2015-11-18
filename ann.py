@@ -78,16 +78,15 @@ class ANN:
         """
         RMS prop, used for updating the weights
 
-        :param error:
-        :param params:
-        :return:
+        :param error: The error variable
+        :param params: The list of params
+        :return: The update values
         """
 
         grads = T.grad(cost=error, wrt=params)
         updates = []
         for p, g in zip(params, grads):
             acc = theano.shared(p.get_value() * 0.)
-
             acc_new = rho * acc + (1 - rho) * g ** 2
             gradient_scaling = T.sqrt(acc_new + 0.000001)
             g = g / gradient_scaling
@@ -126,18 +125,15 @@ class ANN:
             weights.append(weight)
 
             if i == 1:
-                # Input -> Hidden layer
                 activation = Tann.relu(T.dot(ipt, weights[-1]))
             elif i == (len(layers) - 1):
-                # Hidden layer -> Output
                 activation = Tann.softmax(T.dot(activations[-1], weights[-1]))
             else:
-                # Hidden layer -> Hidden layer
                 activation = Tann.relu(T.dot(activations[-1], weights[-1]))
 
             activation.name = 'Activation ' + str(i)
             activations.append(activation)
-        print(weights)
+
         # Build params list
         params = []
         for i in range(len(weights)):
