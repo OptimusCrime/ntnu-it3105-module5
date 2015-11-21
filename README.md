@@ -11,4 +11,4 @@ Before you can run the program you'll need to download the MNIST Dataset, unpack
 Python requirements
 ===================
 
-Programmed for Python2. You'll need to install the requirements in `requirements.txt`.
+Programmed for Python. You'll need to install the requirements in `requirements.txt`.

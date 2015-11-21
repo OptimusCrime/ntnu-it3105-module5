@@ -8,8 +8,8 @@ __mnist_path__ = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/
 # For reading flat cases from a TEXT file (as provided by Valerij). This is needed for the demo!
 
 
-def load_flat_text_cases(filename, dir=__mnist_path__):
-    f = open(dir + filename, 'r')
+def load_flat_text_cases(filename, directory=__mnist_path__):
+    f = open(directory + filename, 'r')
     lines = [line.split(" ") for line in f.read().split("\n")]
     f.close()
 
