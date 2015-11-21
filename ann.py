@@ -94,7 +94,7 @@ class ANN:
             updates.append((p, p - self.learn_rate * g))
         return updates
 
-    def build_network(self, layers=[784, 784, 10]):
+    def build_network(self, layers):
         """
         Method building the network
 
@@ -111,8 +111,9 @@ class ANN:
             print('Output layer neurons: ' + str(layers[-1]))
             print('')
 
-        # Define the input variable
+        # Define the input variable and the expected values
         ipt = T.fmatrix('input')
+        expected = T.fmatrix('expected')
 
         # Variables holding the weights, activations and noises
         weights = []
@@ -139,10 +140,11 @@ class ANN:
         for i in range(len(weights)):
             params.append(weights[i])
 
-        # Define the train function
-        expected = T.fmatrix('expected')
-        error = T.mean(Tann.categorical_crossentropy(activations[-1], expected))
+        # Error and backprop
+        error = T.sum((activations[-1] - expected)**2)
         updates = self.rmsprop(error, params)
+
+        # Define the train function
         self.train = theano.function(inputs=[ipt, expected], outputs=error, updates=updates, allow_input_downcast=True)
 
         # Define the predict function
@@ -280,10 +282,10 @@ if debug:
     an.load(dataset='testing')
 
     # Build the network
-    an.build_network([784, 784, 10])
+    an.build_network([784, 784, 392, 10])
 
     # Train once
-    an.do_training(epochs=20, n=160, run_tests=True)
+    an.do_training(epochs=5, n=160, run_tests=True)
 
     # Run the tests!
     an.do_testing()
