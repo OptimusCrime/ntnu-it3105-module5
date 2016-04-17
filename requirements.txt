@@ -2,5 +2,5 @@ git+https://github.com/Theano/Theano.git@rel-0.7.1a1#egg=Theano==rel-0.7.1a1
 pydot2==1.0.33
 numpy==1.11.0
 requests==2.9.1
-graphviz==0.4.7
+graphviz==0.4.10
 pyparsing==2.0.5
